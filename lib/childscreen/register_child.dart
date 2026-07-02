@@ -6,37 +6,42 @@ class RegisterChild extends StatefulWidget {
   const RegisterChild({super.key});
 
   @override
-  State<RegisterChild> createState() => _RegisterchildState();
+  State<RegisterChild> createState() => _RegisterChildState();
 }
 
-class _RegisterchildState extends State<RegisterChild> {
+class _RegisterChildState extends State<RegisterChild> {
   final _formKey = GlobalKey<FormState>();
 
-  String name = "";
+  String childName = "";
   String email = "";
-  String guardian = "";
+  String guardianEmail = "";
+  String guardianName = "";
   String password = "";
   String confirmPassword = "";
 
   bool loading = false;
 
- Future<void> register() async {
-  if (_formKey.currentState!.validate()) {
+  final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+
+  Future<void> register() async {
+    if (!_formKey.currentState!.validate()) return;
+
     _formKey.currentState!.save();
 
     if (password != confirmPassword) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Passwords do not match")),
+        const SnackBar(
+          content: Text("Passwords do not match"),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
 
-    setState(() {
-      loading = true;
-    });
+    setState(() => loading = true);
 
     try {
-      // 🔥 1. Firebase Auth
+      // 🔐 Firebase Auth
       UserCredential userCredential =
           await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email.trim(),
@@ -45,16 +50,18 @@ class _RegisterchildState extends State<RegisterChild> {
 
       String uid = userCredential.user!.uid;
 
-      // ☁️ 2. Firestore save
+      // ☁️ Firestore Save
       await FirebaseFirestore.instance.collection("users").doc(uid).set({
-  "name": name,
-  "email": email,
-  "guardian": guardian,
-  "role": "child",
-  "createdAt": Timestamp.now(),
-});
+        "childName": childName.trim(),
+        "email": email.trim(),
+        "guardianName": guardianName.trim(),
+        "guardianEmail": guardianEmail.trim(),
+        "role": "child",
+        "createdAt": Timestamp.now(),
+      });
 
-      // ✅ success message
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Registration successful"),
@@ -62,22 +69,20 @@ class _RegisterchildState extends State<RegisterChild> {
         ),
       );
 
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      // 🔙 back to login
       Navigator.pop(context);
-
     } on FirebaseAuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message ?? "Error")),
+        SnackBar(
+          content: Text(e.message ?? "Error"),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
-      setState(() {
-        loading = false;
-      });
+      if (mounted) {
+        setState(() => loading = false);
+      }
     }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -99,7 +104,10 @@ class _RegisterchildState extends State<RegisterChild> {
                     width: 90,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Colors.pink.shade200, Colors.pink.shade400],
+                        colors: [
+                          Colors.pink.shade200,
+                          Colors.pink.shade400,
+                        ],
                       ),
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -122,39 +130,41 @@ class _RegisterchildState extends State<RegisterChild> {
 
                   const SizedBox(height: 30),
 
-                  // NAME
+                  // Child Name
                   TextFormField(
                     decoration: InputDecoration(
                       prefixIcon: const Icon(Icons.person),
-                      hintText: "Full Name",
+                      hintText: "Child Name",
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     validator: (value) =>
-                        value!.isEmpty ? "Full name is required" : null,
-                    onSaved: (value) => name = value!,
+                        value!.isEmpty ? "Child name is required" : null,
+                    onSaved: (value) => childName = value!.trim(),
                   ),
 
                   const SizedBox(height: 12),
 
-                  // EMAIL
+                  // Email
                   TextFormField(
                     decoration: InputDecoration(
                       prefixIcon: const Icon(Icons.email),
-                      hintText: "Email",
+                      hintText: "Child Email",
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     validator: (value) =>
-                        value!.contains("@") ? null : "Enter valid email",
-                    onSaved: (value) => email = value!,
+                        emailRegex.hasMatch(value!.trim())
+                            ? null
+                            : "Enter valid email",
+                    onSaved: (value) => email = value!.trim(),
                   ),
 
                   const SizedBox(height: 12),
 
-                  // GUARDIAN
+                  // Guardian Name
                   TextFormField(
                     decoration: InputDecoration(
                       prefixIcon: const Icon(Icons.family_restroom),
@@ -165,12 +175,30 @@ class _RegisterchildState extends State<RegisterChild> {
                     ),
                     validator: (value) =>
                         value!.isEmpty ? "Guardian name is required" : null,
-                    onSaved: (value) => guardian = value!,
+                    onSaved: (value) => guardianName = value!.trim(),
                   ),
 
                   const SizedBox(height: 12),
 
-                  // PASSWORD
+                  // Guardian Email
+                  TextFormField(
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.email_outlined),
+                      hintText: "Guardian Email",
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    validator: (value) =>
+                        emailRegex.hasMatch(value!.trim())
+                            ? null
+                            : "Enter valid guardian email",
+                    onSaved: (value) => guardianEmail = value!.trim(),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Password
                   TextFormField(
                     obscureText: true,
                     decoration: InputDecoration(
@@ -181,13 +209,15 @@ class _RegisterchildState extends State<RegisterChild> {
                       ),
                     ),
                     validator: (value) =>
-                        value!.length < 6 ? "Min 6 characters required" : null,
-                    onSaved: (value) => password = value!,
+                        value!.length < 6
+                            ? "Min 6 characters required"
+                            : null,
+                    onSaved: (value) => password = value!.trim(),
                   ),
 
                   const SizedBox(height: 12),
 
-                  // CONFIRM PASSWORD
+                  // Confirm Password
                   TextFormField(
                     obscureText: true,
                     decoration: InputDecoration(
@@ -199,12 +229,12 @@ class _RegisterchildState extends State<RegisterChild> {
                     ),
                     validator: (value) =>
                         value!.isEmpty ? "Confirm password required" : null,
-                    onSaved: (value) => confirmPassword = value!,
+                    onSaved: (value) => confirmPassword = value!.trim(),
                   ),
 
                   const SizedBox(height: 25),
 
-                  // REGISTER BUTTON
+                  // Button
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -222,15 +252,16 @@ class _RegisterchildState extends State<RegisterChild> {
                             )
                           : const Text(
                               "Register",
-                              style:
-                                  TextStyle(fontSize: 16, color: Colors.white),
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.white,
+                              ),
                             ),
                     ),
                   ),
 
                   const SizedBox(height: 20),
 
-                  // LOGIN LINK
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [

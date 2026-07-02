@@ -1,49 +1,44 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-class MySharedPrefrence {
-  static SharedPreferences? _preferences;
+class MySharedPreference {
+  static SharedPreferences? preferences;
 
-  static const String keyUserType = 'usertype';
-  static const String keyEmail = 'email';
-  static const String keyUid = 'uid';
-
-  /// INIT (call once in main)
-  static Future<void> init() async {
-    _preferences = await SharedPreferences.getInstance();
+  static Future init() async {
+    preferences = await SharedPreferences.getInstance();
   }
 
-  /// SAVE USER TYPE (child / parent)
-  static Future<void> saveUserType(String userType) async {
-    await _preferences?.setString(keyUserType, userType);
+  // Save Role
+  static Future setRole(String role) async {
+    await preferences?.setString("role", role);
   }
 
-  /// GET USER TYPE
-  static String? getUserType() {
-    return _preferences?.getString(keyUserType);
+  // Get Role
+  static String? getRole() {
+    return preferences?.getString("role");
   }
 
-  /// SAVE EMAIL
-  static Future<void> saveEmail(String email) async {
-    await _preferences?.setString(keyEmail, email);
+  // Save UID
+  static Future setUid(String uid) async {
+    await preferences?.setString("uid", uid);
   }
 
-  /// GET EMAIL
-  static String? getEmail() {
-    return _preferences?.getString(keyEmail);
-  }
-
-  /// SAVE UID
-  static Future<void> saveUid(String uid) async {
-    await _preferences?.setString(keyUid, uid);
-  }
-
-  /// GET UID
+  // Get UID
   static String? getUid() {
-    return _preferences?.getString(keyUid);
+    return preferences?.getString("uid");
   }
 
-  /// CLEAR ALL (LOGOUT)
-  static Future<void> clearAll() async {
-    await _preferences?.clear();
+  // Save Login Status
+  static Future setLogin(bool value) async {
+    await preferences?.setBool("isLoggedIn", value);
+  }
+
+  // Get Login Status
+  static bool getLogin() {
+    return preferences?.getBool("isLoggedIn") ?? false;
+  }
+
+  // Logout / Clear Data
+  static Future clearData() async {
+    await preferences?.clear();
   }
 }

@@ -14,51 +14,83 @@ class _RegisterparentState extends State<Registerparent> {
 
   String name = "";
   String email = "";
-  String childname = "";
+  String childEmail = "";
+  String childName = "";
   String password = "";
   String confirmPassword = "";
 
   bool loading = false;
 
+  final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+
   void register() async {
-    if (_formKey.currentState!.validate()) {
-      _formKey.currentState!.save();
+    if (!_formKey.currentState!.validate()) return;
 
-      // ❌ password match check
-      if (password != confirmPassword) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Passwords do not match")),
-        );
-        return;
-      }
+    _formKey.currentState!.save();
 
-      setState(() {
-        loading = true;
+    if (password != confirmPassword) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Passwords do not match"),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => loading = true);
+
+    try {
+      // Create Auth user
+      UserCredential userCredential =
+          await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password.trim(),
+      );
+
+      String uid = userCredential.user!.uid;
+
+      // Save to Firestore
+      await FirebaseFirestore.instance.collection("users").doc(uid).set({
+        "name": name.trim(),
+        "email": email.trim(),
+        "childName": childName.trim(),
+        "childEmail": childEmail.trim(),
+        "role": "parent",
+        "createdAt": Timestamp.now(),
       });
 
-      try {
-        UserCredential userCredential =
-    await FirebaseAuth.instance.createUserWithEmailAndPassword(
-  email: email.trim(),
-  password: password.trim(),
-);
+      if (!mounted) return;
 
-String uid = userCredential.user!.uid;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Parent Registered Successfully"),
+          backgroundColor: Colors.green,
+        ),
+      );
 
-await FirebaseFirestore.instance.collection("users").doc(uid).set({
-  "name": name,
-  "email": email,
-  "childName": childname,
-  "role": "parent",
-  "createdAt": Timestamp.now(),
-});} on FirebaseAuthException catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message ?? "Error")),
-        );
-      } finally {
-        setState(() {
-          loading = false;
-        });
+      await FirebaseAuth.instance.signOut();
+
+      if (!mounted) return;
+
+      Navigator.pop(context);
+    } on FirebaseAuthException catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message ?? "Registration Failed"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => loading = false);
       }
     }
   }
@@ -109,39 +141,41 @@ await FirebaseFirestore.instance.collection("users").doc(uid).set({
 
                   const SizedBox(height: 30),
 
-                  // NAME
+                  // Parent Name
                   TextFormField(
                     decoration: InputDecoration(
                       prefixIcon: const Icon(Icons.person),
-                      hintText: "Full Name",
+                      hintText: "Parent Name",
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     validator: (value) =>
-                        value!.isEmpty ? "Full name is required" : null,
-                    onSaved: (value) => name = value!,
+                        value!.isEmpty ? "Name is required" : null,
+                    onSaved: (value) => name = value!.trim(),
                   ),
 
                   const SizedBox(height: 12),
 
-                  // EMAIL
+                  // Parent Email
                   TextFormField(
                     decoration: InputDecoration(
                       prefixIcon: const Icon(Icons.email),
-                      hintText: "Email",
+                      hintText: "Parent Email",
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     validator: (value) =>
-                        value!.contains("@") ? null : "Enter valid email",
-                    onSaved: (value) => email = value!,
+                        emailRegex.hasMatch(value!.trim())
+                            ? null
+                            : "Enter valid email",
+                    onSaved: (value) => email = value!.trim(),
                   ),
 
                   const SizedBox(height: 12),
 
-                  // CHILD NAME
+                  // Child Name
                   TextFormField(
                     decoration: InputDecoration(
                       prefixIcon: const Icon(Icons.family_restroom),
@@ -152,12 +186,30 @@ await FirebaseFirestore.instance.collection("users").doc(uid).set({
                     ),
                     validator: (value) =>
                         value!.isEmpty ? "Child name is required" : null,
-                    onSaved: (value) => childname = value!,
+                    onSaved: (value) => childName = value!.trim(),
                   ),
 
                   const SizedBox(height: 12),
 
-                  // PASSWORD
+                  // Child Email
+                  TextFormField(
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.email_outlined),
+                      hintText: "Child Email",
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    validator: (value) =>
+                        emailRegex.hasMatch(value!.trim())
+                            ? null
+                            : "Enter valid child email",
+                    onSaved: (value) => childEmail = value!.trim(),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Password
                   TextFormField(
                     obscureText: true,
                     decoration: InputDecoration(
@@ -168,13 +220,15 @@ await FirebaseFirestore.instance.collection("users").doc(uid).set({
                       ),
                     ),
                     validator: (value) =>
-                        value!.length < 6 ? "Min 6 characters required" : null,
-                    onSaved: (value) => password = value!,
+                        value!.length < 6
+                            ? "Min 6 characters required"
+                            : null,
+                    onSaved: (value) => password = value!.trim(),
                   ),
 
                   const SizedBox(height: 12),
 
-                  // CONFIRM PASSWORD
+                  // Confirm Password
                   TextFormField(
                     obscureText: true,
                     decoration: InputDecoration(
@@ -186,12 +240,12 @@ await FirebaseFirestore.instance.collection("users").doc(uid).set({
                     ),
                     validator: (value) =>
                         value!.isEmpty ? "Confirm password required" : null,
-                    onSaved: (value) => confirmPassword = value!,
+                    onSaved: (value) => confirmPassword = value!.trim(),
                   ),
 
                   const SizedBox(height: 25),
 
-                  // REGISTER BUTTON
+                  // Register Button
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -219,7 +273,7 @@ await FirebaseFirestore.instance.collection("users").doc(uid).set({
 
                   const SizedBox(height: 20),
 
-                  // LOGIN LINK
+                  // Login link
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -229,7 +283,7 @@ await FirebaseFirestore.instance.collection("users").doc(uid).set({
                         child: const Text(
                           "Login",
                           style: TextStyle(
-                            color: Colors.white,
+                            color: Colors.pink,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
